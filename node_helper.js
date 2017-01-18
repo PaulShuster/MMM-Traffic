@@ -15,6 +15,7 @@ module.exports = NodeHelper.create({
 
   getCommute: function(api_url) {
     var self = this;
+    console.log(api_url + "&departure_time=now");
     request({url: api_url + "&departure_time=now", method: 'GET'}, function(error, response, body) {
       if (!error && response.statusCode == 200) {
         var trafficComparison = 0;
@@ -24,16 +25,29 @@ module.exports = NodeHelper.create({
 	}
 	else
 	{
-        if (JSON.parse(body).routes[0].legs[0].duration_in_traffic) {
-          var commute = JSON.parse(body).routes[0].legs[0].duration_in_traffic.text;
-          var noTrafficValue = JSON.parse(body).routes[0].legs[0].duration.value;
-          var withTrafficValue = JSON.parse(body).routes[0].legs[0].duration_in_traffic.value;
-          trafficComparison = parseInt(withTrafficValue)/parseInt(noTrafficValue);
-        } else {
-          var commute = JSON.parse(body).routes[0].legs[0].duration.text;
-        }
-        var summary = JSON.parse(body).routes[0].summary;
-        self.sendSocketNotification('TRAFFIC_COMMUTE', {'commute':commute, 'url':api_url, 'trafficComparison': trafficComparison, 'summary':summary});
+        var routes = [];
+        var json = JSON.parse(body);
+        json.routes.forEach(function(route) {
+          if (route.legs[0].duration_in_traffic) {
+            var commute = route.legs[0].duration_in_traffic.text;
+            var noTrafficValue = route.legs[0].duration.value;
+            var withTrafficValue = route.legs[0].duration_in_traffic.value;
+            trafficComparison = parseInt(withTrafficValue)/parseInt(noTrafficValue);
+          } else {
+            var commute = route.legs[0].duration.text;
+          }
+          var summary = route.summary;
+          routes.push({'commute': commute, 'trafficComparison': trafficComparison, 'summary': summary});
+        });
+        console.log(routes.length);
+        console.log(routes.length ? routes[0].commute : '');
+        self.sendSocketNotification('TRAFFIC_COMMUTE', {
+          'commute':routes.length ? routes[0].commute : '', 
+          'url':api_url, 
+          'trafficComparison': routes.length ? routes[0].trafficComparison : '',
+          'summary':routes.length ? routes[0].summary : '',
+          'routes':routes
+        });
       }
 	}
     });

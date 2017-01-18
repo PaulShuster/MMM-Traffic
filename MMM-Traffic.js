@@ -25,7 +25,8 @@ Module.register('MMM-Traffic', {
         limitRed: 30,
         showGreen: true,
         language: config.language,
-        show_summary: true
+        show_summary: true,
+        show_alternatives: false
     },
 
     start: function() {
@@ -74,6 +75,14 @@ Module.register('MMM-Traffic', {
         symbol.className = this.symbols[this.config.mode] + ' symbol';
         commuteInfo.appendChild(symbol);
 
+        function getColor(data, config) {
+          if (!config.changeColor) return '';
+          if (data.trafficComparison >= 1 + (config.limitRed / 100)) return 'red';
+          if (data.trafficComparison >= 1 + (config.limitYellow / 100)) return ' yellow';
+          if (config.showGreen) return ' green';
+          return '';
+        }
+        
         if (this.config.arrival_time == '') {
           //commute time
           var trafficInfo = document.createElement('span');
@@ -81,27 +90,21 @@ Module.register('MMM-Traffic', {
           commuteInfo.appendChild(trafficInfo);
 
           //change color if desired and append
-          if (this.config.changeColor) {
-            if (this.trafficComparison >= 1 + (this.config.limitRed / 100)) {
-              commuteInfo.className += ' red';
-            } else if (this.trafficComparison >= 1 + (this.config.limitYellow / 100)) {
-              commuteInfo.className += ' yellow';
-            } else if (this.config.showGreen) {
-              commuteInfo.className += ' green';
-            }
-          }
+          commuteInfo.className += ' ' + getColor(this, this.config);
           wrapper.appendChild(commuteInfo);
 
-          //routeName
+          //routeName & alternatives
           if (this.config.route_name) {
-            var routeName = document.createElement('div');
-            routeName.className = 'dimmed small';
-            if (this.summary.length > 0 && this.config.show_summary){
-              routeName.innerHTML = this.config.route_name + ' via ' + this.summary; //todo translatable?
-            } else {
-              routeName.innerHTML = this.config.route_name;
+            for (var x=0; x < this.routes.length; x++) {
+              var routeName = document.createElement('div');
+              routeName.className = 'dimmed small ' + getColor(this.routes[x], this.config);
+              if (this.routes[x].summary.length > 0 && this.config.show_summary){
+                routeName.innerHTML = this.config.route_name + ' via ' + this.routes[x].summary + ' - ' + this.routes[x].commute; //todo translatable?
+              } else {
+                routeName.innerHTML = this.config.route_name;
+              }
+              wrapper.appendChild(routeName);
             }
-            wrapper.appendChild(routeName);
           }
         } else {
           //leave-by time
@@ -134,6 +137,7 @@ Module.register('MMM-Traffic', {
         params += '&key=' + this.config.api_key;
         params += '&traffic_model=' + this.config.traffic_model;
         params += '&language=' + this.config.language;
+        params += '&alternatives=' + this.config.show_alternatives;
         return params;
     },
 
@@ -144,6 +148,7 @@ Module.register('MMM-Traffic', {
             this.commute = payload.commute;
             this.summary = payload.summary;
             this.trafficComparison = payload.trafficComparison;
+            this.routes = payload.routes;
             this.loaded = true;
             this.updateDom(1000);
         } else if (notification === 'TRAFFIC_TIMING' && payload.url === this.url) {
