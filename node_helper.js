@@ -15,7 +15,6 @@ module.exports = NodeHelper.create({
 
   getCommute: function(api_url) {
     var self = this;
-    console.log(api_url + "&departure_time=now");
     request({url: api_url + "&departure_time=now", method: 'GET'}, function(error, response, body) {
       if (!error && response.statusCode == 200) {
         var trafficComparison = 0;
@@ -37,10 +36,13 @@ module.exports = NodeHelper.create({
             var commute = route.legs[0].duration.text;
           }
           var summary = route.summary;
-          routes.push({'commute': commute, 'trafficComparison': trafficComparison, 'summary': summary});
+          // Do not add routes that have the same summery
+          var exists = false;
+          routes.forEach(function (rt) { exists |= rt.summary === summary;} );
+          if (!exists) {
+            routes.push({'commute': commute, 'trafficComparison': trafficComparison, 'summary': summary});
+          }
         });
-        console.log(routes.length);
-        console.log(routes.length ? routes[0].commute : '');
         self.sendSocketNotification('TRAFFIC_COMMUTE', {
           'commute':routes.length ? routes[0].commute : '', 
           'url':api_url, 
